@@ -102,6 +102,7 @@
                         <option>-dontwarn org.bukkit.**</option>
                         <option>-dontwarn io.papermc.**</option>
                         <option>-dontwarn com.sun.jna.**</option>
+                        <option>-dontwarn com.sun.net.**</option>
                         <option>-dontwarn java.**</option>
                         <option>-dontwarn javax.**</option>
                         <option>-dontnote **</option>
@@ -114,6 +115,7 @@
                     <outjar>${project.build.finalName}-obfuscated.jar</outjar>
                     <libs>
                         <lib>${java.home}/jmods/java.base.jmod</lib>
+                        <lib>${java.home}/jmods/jdk.httpserver.jmod</lib>
                     </libs>
                 </configuration>
                 <dependencies>
