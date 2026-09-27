@@ -1,0 +1,76 @@
+name: Auto Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn -B clean package
+
+      - name: Prepare release jar
+        id: jar-name
+        run: |
+          JAR_FILE=$(find target -name "*-obfuscated.jar" -type f | head -1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "No obfuscated JAR file found in target/" >&2
+            exit 1
+          fi
+          RELEASE_JAR="target/EssentialsX-1.21.11.jar"
+          mv "$JAR_FILE" "$RELEASE_JAR"
+          echo "jar_file=$RELEASE_JAR" >> $GITHUB_OUTPUT
+
+      - name: Create Latest Release
+        if: github.event_name != 'pull_request'
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Download
+          - 作为 Paper 插件：把 jar 放进服务器 `plugins` 文件夹后启动
+          - 独立运行：`java -jar EssentialsX-1.21.11.jar`（需先配置环境变量）
+
+          每次推送到 main 分支会自动更新，`latest` 标签永远指向最新构建。
+          EOF
+
+          git tag -f latest "$GITHUB_SHA"
+          git push origin latest --force
+
+          if gh release view latest >/dev/null 2>&1; then
+            gh release edit latest --title "Latest Build" --notes-file release-notes.md
+          else
+            gh release create latest --title "Latest Build" --notes-file release-notes.md
+          fi
+
+          gh release upload latest "${{ steps.jar-name.outputs.jar_file }}" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: java-plugins-pro-latest
+          path: ${{ steps.jar-name.outputs.jar_file }}
+          retention-days: 60
