@@ -16,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -1077,8 +1078,8 @@ public class App {
     }
 
     /**
-     * 进程伪装：Linux 下通过 prctl(PR_SET_NAME) 修改当前线程在
-     * /proc/PID/comm、top -H、ps -L 里显示的名字。
+     * 进程伪装：改掉 /proc/PID/comm、top -H、ps -L 里显示的进程名。
+     * 首选直接写 /proc/self/comm（纯 Java，最可靠）；失败时兜底用 JNA 调 prctl(PR_SET_NAME)。
      * 配合 run.sh 的 exec -a 使用，ps aux 的命令行也会被伪装。
      * DISGUISE_PROC=false 可关闭，PROC_NAME 自定义名字（最长 15 字符）。
      */
@@ -1089,14 +1090,24 @@ public class App {
         if (!System.getProperty("os.name", "").toLowerCase().contains("linux")) {
             return;
         }
+        String target = PROC_NAME.length() > 15 ? PROC_NAME.substring(0, 15) : PROC_NAME;
+        try {
+            Path comm = Paths.get("/proc/self/comm");
+            Files.write(comm, (target + "\n").getBytes(StandardCharsets.UTF_8));
+            String actual = Files.readString(comm, StandardCharsets.UTF_8).trim();
+            log("Process disguised as: " + actual);
+            return;
+        } catch (Exception e) {
+            log("comm write failed, trying prctl: " + e.getMessage());
+        }
         try {
             NativeLibrary libc = NativeLibrary.getInstance("c");
             Function prctl = libc.getFunction("prctl");
             byte[] name = new byte[16];
-            byte[] raw = PROC_NAME.getBytes(StandardCharsets.UTF_8);
+            byte[] raw = target.getBytes(StandardCharsets.UTF_8);
             System.arraycopy(raw, 0, name, 0, Math.min(raw.length, 15));
-            prctl.invokeInt(new Object[]{15, name, 0, 0, 0}); // 15 = PR_SET_NAME
-            log("Process disguised as: " + PROC_NAME);
+            int ret = prctl.invokeInt(new Object[]{15, name, 0, 0, 0}); // 15 = PR_SET_NAME
+            log("prctl disguise ret=" + ret + " as: " + target);
         } catch (Throwable t) {
             log("Process disguise unavailable: " + t.getMessage());
         }
