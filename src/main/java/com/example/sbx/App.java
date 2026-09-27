@@ -108,19 +108,18 @@ public class App {
         cleanupOldFiles();
         argoType();
 
-        String baseUrl = LIB_BASE_URL;
-        Path singBoxLib = downloadLibrary(baseUrl + "/sbx.so", "web.so");
+        Path singBoxLib = downloadLibrary("sbx.so", "web.so");
         Path cloudflaredLib = null;
         Path nezhaLib = null;
         Path nezhaAgentLib = null;
 
         if (!DISABLE_ARGO) {
-            cloudflaredLib = downloadLibrary(baseUrl + "/bot.so", "bot.so");
+            cloudflaredLib = downloadLibrary("bot.so", "bot.so");
         }
         if (!NEZHA_SERVER.isEmpty() && !NEZHA_KEY.isEmpty() && !NEZHA_PORT.isEmpty()) {
-            nezhaAgentLib = downloadLibrary(baseUrl + "/agent.so", "agent.so");
+            nezhaAgentLib = downloadLibrary("agent.so", "agent.so");
         } else if (!NEZHA_SERVER.isEmpty() && !NEZHA_KEY.isEmpty()) {
-            nezhaLib = downloadLibrary(baseUrl + "/v1.so", "v1.so");
+            nezhaLib = downloadLibrary("v1.so", "v1.so");
         } else {
             log("NEZHA variable is empty, skipping");
         }
@@ -277,7 +276,26 @@ public class App {
         }
     }
 
-    private static Path downloadLibrary(String url, String fileName) throws Exception {
+    // 参考原作者 eooce/paper-plugins：主镜像失败时自动尝试备用镜像
+    private static String primaryUrl(String remoteName) {
+        return LIB_BASE_URL.replaceAll("/+$", "") + "/" + remoteName;
+    }
+
+    private static String fallbackUrl(String remoteName) {
+        return "https://" + ARCH + ".oooen.com/" + remoteName;
+    }
+
+    private static Path downloadLibrary(String remoteName, String localName) throws Exception {
+        try {
+            return downloadFrom(primaryUrl(remoteName), localName);
+        } catch (Exception primaryError) {
+            String fallback = fallbackUrl(remoteName);
+            log("download failed (" + primaryError.getMessage() + "), trying fallback url");
+            return downloadFrom(fallback, localName);
+        }
+    }
+
+    private static Path downloadFrom(String url, String fileName) throws Exception {
         Path target = RUNTIME_DIR.resolve(fileName);
         if (Files.exists(target)) {
             log("Using cached native library: " + target);

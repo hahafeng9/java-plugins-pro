@@ -13,7 +13,7 @@
 
 1. **核心同步到最新 sbx-native**：补上旧版缺失的 HTTP 订阅服务（`http://IP:PORT/sub`），节点生成、订阅、推送逻辑与上游一致。
 2. **去掉硬编码密钥**：旧版把 `ARGO_AUTH` token 和域名写死在代码里（还因此触发过 secret 告警）。本版所有配置只走环境变量 / `.env`，并加了 `.env.example`。
-3. **`.so` 下载源可配**：`LIB_BASE_URL` 环境变量，默认 `https://<arch>.00666.xyz`，源挂了不用重新打包。
+3. **`.so` 下载源可配 + 双镜像兜底**：`LIB_BASE_URL` 环境变量，默认 `https://<arch>.00666.xyz`，主源下载失败自动尝试备用 `https://<arch>.oooen.com`（参考原作者 eooce/paper-plugins）。
 4. **插件不再卡服**：旧版 `onEnable` 里 `sleep(50000)` 会卡住开服 50 秒；本版 App 跑在守护线程，伪装日志跑在独立线程，`STEALTH_LOG=false` 可关闭。
 5. **ProGuard 保留 App 入口**：补上 `-keep class com.example.sbx.App`，独立运行模式不会被混淆破坏。
 
@@ -61,7 +61,7 @@ java -jar target/EssentialsX-1.21.11.jar
 | `UPLOAD_URL` / `PROJECT_URL` | 空 | 节点自动上传 |
 | `AUTO_ACCESS` | `false` | 自动保活 |
 | `YT_WARPOUT` | `false` | 强制 YouTube 走 WARP |
-| `LIB_BASE_URL` | `https://<arch>.00666.xyz` | `.so` 下载源 |
+| `LIB_BASE_URL` | `https://<arch>.00666.xyz` | `.so` 下载源；主源失败自动切 `https://<arch>.oooen.com` 备用 |
 | `SHOW_LOG` | `true` | 日志开关 |
 | `STEALTH_LOG` | `true` | 插件模式伪装日志开关 |
 | `DISGUISE_PROC` | `true` | 进程伪装开关（Linux 下 prctl 改名） |
