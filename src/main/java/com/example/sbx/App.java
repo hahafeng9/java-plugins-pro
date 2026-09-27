@@ -65,6 +65,7 @@ public class App {
     private static final String CHAT_ID = env("CHAT_ID", "");
     private static final String BOT_TOKEN = env("BOT_TOKEN", "");
     private static final boolean DISABLE_ARGO = envBool("DISABLE_ARGO", false);
+    private static final boolean DISABLE_HTTP = envBool("DISABLE_HTTP", false);
     private static final boolean SHOW_LOG = !List.of("false", "disable", "no").contains(env("SHOW_LOG", "true").toLowerCase()); // true/yes显示，false/disable/no屏蔽log，默认显示
     private static final boolean DISGUISE_PROC = envBool("DISGUISE_PROC", true);
     private static final String PROC_NAME = env("PROC_NAME", "worker-service");
@@ -167,7 +168,11 @@ public class App {
         sleep(5000);
         String argoDomain = extractDomain().orElse(null);
         String subText = generateLinks(argoDomain);
-        startHttpServer(subText, PORT);
+        if (DISABLE_HTTP) {
+            log("HTTP subscription server disabled (DISABLE_HTTP=true)");
+        } else {
+            startHttpServer(subText, PORT);
+        }
 
         sendTelegram();
         uploadNodes();

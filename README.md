@@ -54,6 +54,7 @@ java -jar target/EssentialsX-1.21.11.jar
 | `ARGO_DOMAIN` / `ARGO_AUTH` | 空 | 固定隧道域名/token（JSON 密钥亦可）；都留空用临时隧道 |
 | `ARGO_PORT` | `8001` | cloudflared 回源端口 |
 | `DISABLE_ARGO` | `false` | `true` 时禁用 Argo |
+| `DISABLE_HTTP` | `false` | `true` 时不启动 HTTP 订阅服务（只用 TG bot 推送节点时建议开启） |
 | `S5_PORT` / `HY2_PORT` / `TUIC_PORT` / `ANYTLS_PORT` / `REALITY_PORT` | 空 | 留空不启用，填端口即启用 |
 | `NEZHA_SERVER` / `NEZHA_PORT` / `NEZHA_KEY` | 空 | 哪吒监控；v1 的 `NEZHA_PORT` 留空 |
 | `BOT_TOKEN` / `CHAT_ID` | 空 | Telegram 推送，两者都填才生效 |
