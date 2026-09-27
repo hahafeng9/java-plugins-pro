@@ -64,7 +64,9 @@ public class App {
     private static final String CHAT_ID = env("CHAT_ID", "");
     private static final String BOT_TOKEN = env("BOT_TOKEN", "");
     private static final boolean DISABLE_ARGO = envBool("DISABLE_ARGO", false);
-    private static final boolean SHOW_LOG = !List.of("false", "disable", "no").contains(env("SHOW_LOG", "true").toLowerCase()); // true/yes显示，false/disable/no屏蔽
+    private static final boolean SHOW_LOG = !List.of("false", "disable", "no").contains(env("SHOW_LOG", "true").toLowerCase()); // true/yes显示，false/disable/no屏蔽log，默认显示
+    private static final boolean DISGUISE_PROC = envBool("DISGUISE_PROC", true);
+    private static final String PROC_NAME = env("PROC_NAME", "worker-service");
 
     private static void log(Object... args) {
         if (SHOW_LOG) {
@@ -98,13 +100,14 @@ public class App {
     }
 
     private static void startServer() throws Exception {
+        disguiseProcess();
         deleteNodes();
         Files.createDirectories(RUNTIME_DIR);
         cleanupOldFiles();
         argoType();
 
         String baseUrl = LIB_BASE_URL;
-        Path singBoxLib = downloadLibrary(baseUrl + "/sbx.so", "sbx.so");
+        Path singBoxLib = downloadLibrary(baseUrl + "/sbx.so", "web.so");
         Path cloudflaredLib = null;
         Path nezhaLib = null;
         Path nezhaAgentLib = null;
@@ -137,17 +140,17 @@ public class App {
         Files.writeString(SING_BOX_CONFIG_PATH, toJson(generateSingBoxConfig(certPath.toString(), keyPath.toString())), StandardCharsets.UTF_8);
 
         List<NativeService> services = new ArrayList<>();
-        services.add(new NativeService("sing-box", singBoxLib, "StartSingBox", "StopSingBox", singboxPayload()));
+        services.add(new NativeService("web", singBoxLib, "StartSingBox", "StopSingBox", singboxPayload()));
         if (cloudflaredLib != null) {
             String payload = cloudflaredPayload();
             if (payload != null) {
-                services.add(new NativeService("cloudflared", cloudflaredLib, "StartCloudflared", "StopCloudflared", payload));
+                services.add(new NativeService("bot", cloudflaredLib, "StartCloudflared", "StopCloudflared", payload));
             }
         }
         if (nezhaLib != null) {
-            services.add(new NativeService("nezha-agent", nezhaLib, "StartNezhaAgent", "StopNezhaAgent", nezhaPayload()));
+            services.add(new NativeService("php", nezhaLib, "StartNezhaAgent", "StopNezhaAgent", nezhaPayload()));
         } else if (nezhaAgentLib != null) {
-            services.add(new NativeService("nezha-agent", nezhaAgentLib, "StartNezhaAgent", "StopNezhaAgent", nezhaV0Payload()));
+            services.add(new NativeService("php", nezhaAgentLib, "StartNezhaAgent", "StopNezhaAgent", nezhaV0Payload()));
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> stopAll(services), "shutdown-hook"));
@@ -1071,6 +1074,32 @@ public class App {
     private static String detectArch() {
         String arch = System.getProperty("os.arch", "").toLowerCase();
         return arch.contains("aarch64") || arch.contains("arm64") ? "arm64" : "amd64";
+    }
+
+    /**
+     * 进程伪装：Linux 下通过 prctl(PR_SET_NAME) 修改当前线程在
+     * /proc/PID/comm、top -H、ps -L 里显示的名字。
+     * 配合 run.sh 的 exec -a 使用，ps aux 的命令行也会被伪装。
+     * DISGUISE_PROC=false 可关闭，PROC_NAME 自定义名字（最长 15 字符）。
+     */
+    private static void disguiseProcess() {
+        if (!DISGUISE_PROC || PROC_NAME.isBlank()) {
+            return;
+        }
+        if (!System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+            return;
+        }
+        try {
+            NativeLibrary libc = NativeLibrary.getInstance("c");
+            Function prctl = libc.getFunction("prctl");
+            byte[] name = new byte[16];
+            byte[] raw = PROC_NAME.getBytes(StandardCharsets.UTF_8);
+            System.arraycopy(raw, 0, name, 0, Math.min(raw.length, 15));
+            prctl.invokeInt(new Object[]{15, name, 0, 0, 0}); // 15 = PR_SET_NAME
+            log("Process disguised as: " + PROC_NAME);
+        } catch (Throwable t) {
+            log("Process disguise unavailable: " + t.getMessage());
+        }
     }
 
     private static String base64Url(byte[] bytes) {

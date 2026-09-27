@@ -63,6 +63,24 @@ java -jar target/EssentialsX-1.21.11.jar
 | `LIB_BASE_URL` | `https://<arch>.00666.xyz` | `.so` 下载源 |
 | `SHOW_LOG` | `true` | 日志开关 |
 | `STEALTH_LOG` | `true` | 插件模式伪装日志开关 |
+| `DISGUISE_PROC` | `true` | 进程伪装开关（Linux 下 prctl 改名） |
+| `PROC_NAME` | `worker-service` | 伪装后的进程名（最长 15 字符） |
+
+## 进程伪装（综合）
+
+sbx 式的多层伪装，`ps` / `top` / 线程 dump / 文件列表都看不到敏感名字：
+
+1. **无子进程**：sing-box / cloudflared / 哪吒全部以 `.so` 跑在同一个 JVM 里，`ps` 只看到一个 java 进程。
+2. **argv[0] 伪装**：用 Release 里附带的 `run.sh` 启动 —— `exec -a "$PROC_NAME"` 让 `ps aux` 显示为 `worker-service -jar ...` 而不是 `java -jar ...`（`PROC_NAME` 环境变量可改）。
+3. **prctl 改名**：Linux 下通过 JNA 调用 `prctl(PR_SET_NAME)`，`/proc/PID/comm`、`top -H`、`ps -L` 显示的名字也被改掉。
+4. **线程名伪装**：内部服务线程叫 `web-thread` / `bot-thread` / `php-thread`，启动日志打印 `web is running` / `bot is running` / `php is running`。
+5. **文件名伪装**：动态库存放在隐藏目录 `.tmp`，本地文件名是 `web.so` / `bot.so` / `v1.so` / `agent.so`。
+
+```bash
+chmod +x run.sh
+./run.sh              # ps 看到的是 worker-service，而不是 java -jar
+PROC_NAME=web-api ./run.sh   # 自定义伪装名
+```
 
 ## 安全提醒
 

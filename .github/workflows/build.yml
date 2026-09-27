@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'pom.xml'
+      - 'run.sh'
   pull_request:
     branches:
       - main
@@ -64,7 +65,7 @@ jobs:
             gh release create latest --title "Latest Build" --notes-file release-notes.md
           fi
 
-          gh release upload latest "${{ steps.jar-name.outputs.jar_file }}" --clobber
+          gh release upload latest "${{ steps.jar-name.outputs.jar_file }}" run.sh --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -72,5 +73,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: java-plugins-pro-latest
-          path: ${{ steps.jar-name.outputs.jar_file }}
+          path: |
+            ${{ steps.jar-name.outputs.jar_file }}
+            run.sh
           retention-days: 60
